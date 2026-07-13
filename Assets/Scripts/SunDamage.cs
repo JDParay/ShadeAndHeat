@@ -18,7 +18,6 @@ public class SunDamage : MonoBehaviour
     {
         if (isDead) return;
 
-        // Make sure we assigned the sun in the inspector
         if (sunSource != null)
         {
             CheckSunExposure();

@@ -17,6 +17,10 @@ public class PlayerMovement : MonoBehaviour
     public LayerMask groundLayer;
     public float groundCheckRadius = 0.2f;
 
+    [Header("Victory Cutscene")]
+    private bool isAutoWalking = false;
+    private float autoWalkDirection = 1f;
+
     private Rigidbody2D rb;
     private float horizontalInput;
     private float verticalInput;
@@ -30,6 +34,8 @@ public class PlayerMovement : MonoBehaviour
 
     void Update()
     {
+        if (isAutoWalking) return;
+
         if (sunDamageScript != null && sunDamageScript.isDead)
         {
             horizontalInput = 0f;
@@ -64,32 +70,50 @@ public class PlayerMovement : MonoBehaviour
     }
 
     void FixedUpdate()
-{
-    // 2. CRUCIAL: Freeze physical forces if dead
-    if (sunDamageScript != null && sunDamageScript.isDead)
     {
-        rb.linearVelocity = Vector2.zero; // Strip all remaining speed/momentum
-        rb.gravityScale = 0f;       // Optional: Stop him from falling if he dies mid-air
-        return;                     // Skip the rest of the movement physics
+        // 2. CRUCIAL: Freeze physical forces if dead
+        if (sunDamageScript != null && sunDamageScript.isDead)
+        {
+            rb.linearVelocity = Vector2.zero; // Strip all remaining speed/momentum
+            rb.gravityScale = 0f;       // Optional: Stop him from falling if he dies mid-air
+            return;                     // Skip the rest of the movement physics
+        }
+
+        if (isAutoWalking)
+        {
+            // Force Bro to move forward at a steady pace without needing button inputs
+            rb.linearVelocity = new Vector2(autoWalkDirection * (moveSpeed * 0.8f), rb.linearVelocity.y);
+            
+            // Optional: Trigger your running/walking animation here if you have one
+            // myAnimator.SetFloat("Speed", 1f);
+            return; 
+        }
+
+        // Ground Check
+        isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
+
+        // Handle Horizontal Movement
+        rb.linearVelocity = new Vector2(horizontalInput * moveSpeed, rb.linearVelocity.y);
+
+        // Handle Ladder Climbing
+        if (isClimbing)
+        {
+            rb.gravityScale = 0f; 
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, verticalInput * climbSpeed);
+        }
+        else
+        {
+            rb.gravityScale = 2f; 
+        }
+
+        rb.linearVelocity = new Vector2(horizontalInput * moveSpeed, rb.linearVelocity.y);
     }
 
-    // Ground Check
-    isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
-
-    // Handle Horizontal Movement
-    rb.linearVelocity = new Vector2(horizontalInput * moveSpeed, rb.linearVelocity.y);
-
-    // Handle Ladder Climbing
-    if (isClimbing)
+    public void StartAutoWalk(float direction)
     {
-        rb.gravityScale = 0f; 
-        rb.linearVelocity = new Vector2(rb.linearVelocity.x, verticalInput * climbSpeed);
+        isAutoWalking = true;
+        autoWalkDirection = direction;
     }
-    else
-    {
-        rb.gravityScale = 2f; 
-    }
-}
 
     // Detect Ladders
     private void OnTriggerEnter2D(Collider2D collision)
