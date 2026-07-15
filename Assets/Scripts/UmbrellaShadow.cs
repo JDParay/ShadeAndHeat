@@ -4,7 +4,7 @@ using System.Collections.Generic;
 [RequireComponent(typeof(PolygonCollider2D))]
 [RequireComponent(typeof(MeshFilter))]
 [RequireComponent(typeof(MeshRenderer))]
-public class WrappingShadowProjection : MonoBehaviour
+public class UmbrellaShadow : MonoBehaviour
 {
     [Header("References")]
     public Transform sunSource;       
@@ -32,6 +32,7 @@ public class WrappingShadowProjection : MonoBehaviour
     private List<Vector3> meshVertices = new List<Vector3>();
     private List<int> meshTriangles = new List<int>();
     private List<Color> meshColors = new List<Color>();
+    private List<Vector2> meshUVs = new List<Vector2>();
 
     void Start()
     {
@@ -62,6 +63,7 @@ public class WrappingShadowProjection : MonoBehaviour
         meshVertices.Clear();
         meshTriangles.Clear();
         meshColors.Clear();
+        meshUVs.Clear();
 
         Vector2 sunPos = sunSource.position;
 
@@ -71,7 +73,7 @@ public class WrappingShadowProjection : MonoBehaviour
 
         // 2. Loop through and sweep raycasts from right to left across the angle span
         // Change this line in your script to be fully solid opaque!
-        Color shadowColor = new Color(0f, 0f, 0.1f, 1f);
+        Color shadowColor = new Color(0f, 0f, 0.1f, shadowOpacity);
 
         for (int i = 0; i <= rayDensity; i++)
         {
@@ -92,10 +94,20 @@ public class WrappingShadowProjection : MonoBehaviour
         shadowCollider.points = localPoints.ToArray();
 
         // 4. Triangulate the polygon into a clean 2D mesh layout dynamically
+        Bounds shapeBounds = new Bounds(new Vector3(localPoints[0].x, localPoints[0].y, 0f), Vector3.zero);
+        for (int i = 0; i < localPoints.Count; i++)
+        {
+            shapeBounds.Encapsulate(new Vector3(localPoints[i].x, localPoints[i].y, 0f));
+        }
+        
         for (int i = 0; i < localPoints.Count; i++)
         {
             meshVertices.Add(new Vector3(localPoints[i].x, localPoints[i].y, 0f));
             meshColors.Add(shadowColor);
+        
+            float u = Mathf.InverseLerp(shapeBounds.min.x, shapeBounds.max.x, localPoints[i].x);
+            float v = Mathf.InverseLerp(shapeBounds.min.y, shapeBounds.max.y, localPoints[i].y);
+            meshUVs.Add(new Vector2(u, v));
         }
 
         // Generate triangles using a fan layout originating from vertex 0 (Left Edge)
@@ -110,6 +122,7 @@ public class WrappingShadowProjection : MonoBehaviour
         mesh.vertices = meshVertices.ToArray();
         mesh.colors = meshColors.ToArray();
         mesh.triangles = meshTriangles.ToArray();
+        mesh.uv = meshUVs.ToArray();
         mesh.RecalculateNormals();
         mesh.RecalculateBounds();
     }
