@@ -1,77 +1,47 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
-using System.Collections;
 
 public class SunDamage : MonoBehaviour
 {
-    [Header("Sun Settings")]
-    public Transform sunSource; // Drag your Freeform Light 2D GameObject here!
-    public LayerMask umbrellaLayer;
-    public float raycastMaxDistance = 50f; 
+    [Header("Sun Burn Settings")]
+    [Tooltip("How many extra seconds are drained from the level timer per second Bro spends in the direct sun.")]
+    public float sunBurnIntensity = 20f; 
 
-    [Header("Death Settings")]
-    public float delayBeforeReset = 2f; 
-    
-    [HideInInspector] public bool isDead = false; 
+    [Header("State")]
+    public bool isExposedToSun = true;
+    public bool isDead = false; // Kept for animation/state checks if needed
+
+    private int umbrellaCollidersOverlapping = 0;
 
     void Update()
     {
-        if (isDead) return;
+        // If the level is already over or Bro is locked, do nothing
+        if (LevelManager.Instance != null && LevelManager.Instance.isLevelOver) return;
 
-        if (sunSource != null)
+        // Determine if Bro is safely in the shade or burning
+        isExposedToSun = (umbrellaCollidersOverlapping == 0);
+
+        // If exposed to the blazing sun, rapidly drain the LevelManager's timer!
+        if (isExposedToSun && LevelManager.Instance != null)
         {
-            CheckSunExposure();
-        }
-        else
-        {
-            Debug.LogWarning("Please assign the Sun Source Transform in the Inspector!");
-        }
-    }
-
-    void CheckSunExposure()
-    {
-        // 1. Calculate the direction from the Sun to the Player
-        Vector2 rayOrigin = sunSource.position;
-        Vector2 playerPos = transform.position;
-        Vector2 sunDirection = (playerPos - rayOrigin).normalized;
-
-        // 2. Cast the ray from the sun directly towards the player
-        RaycastHit2D hit = Physics2D.Raycast(rayOrigin, sunDirection, raycastMaxDistance, umbrellaLayer);
-
-        // 3. Let's draw it so you can see it perfectly in Scene View
-        // If it hits the umbrella before reaching the distance to the player, you are safe!
-        float distanceToPlayer = Vector2.Distance(rayOrigin, playerPos);
-
-        if (hit.collider != null && hit.distance < distanceToPlayer)
-        {
-            // The ray hit the umbrella *before* hitting the player! Safe!
-            Debug.DrawLine(rayOrigin, hit.point, Color.green);
-            return; 
-        }
-        else
-        {
-            // The ray reached the player without being intercepted by the umbrella layer. Burn!
-            Debug.DrawRay(rayOrigin, sunDirection * raycastMaxDistance, Color.red);
-            StartCoroutine(HandlePlayerDeath());
+            // Time.deltaTime * sunBurnIntensity means we lose extra seconds every real second
+            LevelManager.Instance.timeRemaining -= sunBurnIntensity * Time.deltaTime;
         }
     }
 
-    IEnumerator HandlePlayerDeath()
+    // Trigger zones look for your custom shadow projection meshes!
+    private void OnTriggerEnter2D(Collider2D other)
     {
-        isDead = true;
-        
-        PlayerMovement movementScript = GetComponent<PlayerMovement>();
-        if (movementScript != null) movementScript.enabled = false;
-
-        Rigidbody2D rb = GetComponent<Rigidbody2D>();
-        if (rb != null)
+        if (other.gameObject.layer == LayerMask.NameToLayer("Umbrella"))
         {
-            rb.linearVelocity = Vector2.zero;
-            rb.angularVelocity = 0f;
-            rb.bodyType = RigidbodyType2D.Static;
+            umbrellaCollidersOverlapping++;
         }
+    }
 
-        yield return new WaitForSeconds(delayBeforeReset);
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    private void OnTriggerExit2D(Collider2D other)
+    {
+        if (other.gameObject.layer == LayerMask.NameToLayer("Umbrella"))
+        {
+            umbrellaCollidersOverlapping = Mathf.Max(0, umbrellaCollidersOverlapping - 1);
+        }
     }
 }

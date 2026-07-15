@@ -30,37 +30,42 @@ public class PlayerMovement : MonoBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+        // Automatically find the SunDamage component attached to Bro
+        sunDamageScript = GetComponent<SunDamage>();
     }
 
     void Update()
     {
         if (isAutoWalking) return;
 
+        // --- FIXED DEATH INPUT CHECK ---
         if (sunDamageScript != null && sunDamageScript.isDead)
         {
+            // CRITICAL: Force inputs back to zero so momentum cannot stick!
             horizontalInput = 0f;
             verticalInput = 0f;
+
+            // PLACEHOLDER FOR ANIMATION:
+            // When you add animations later, this is where you force the death stance!
+            // myAnimator.SetBool("IsDead", true);
+            // myAnimator.SetFloat("Speed", 0f);
+
             return; 
         }
-        // --- NEW INPUT SYSTEM REPLACEMENTS ---
 
-        // Replaces: Input.GetAxisRaw("Horizontal")
+        // --- INPUT SYSTEM REPLACEMENTS ---
         horizontalInput = 0f;
         if (Keyboard.current.dKey.isPressed || Keyboard.current.rightArrowKey.isPressed) horizontalInput = 1f;
         if (Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed) horizontalInput = -1f;
 
-        // Replaces: Input.GetAxisRaw("Vertical")
         verticalInput = 0f;
         if (Keyboard.current.wKey.isPressed || Keyboard.current.upArrowKey.isPressed) verticalInput = 1f;
         if (Keyboard.current.sKey.isPressed || Keyboard.current.downArrowKey.isPressed) verticalInput = -1f;
 
-        // Replaces: Input.GetButtonDown("Jump")
         if (Keyboard.current.spaceKey.wasPressedThisFrame && isGrounded && !isClimbing)
         {
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
         }
-
-        // --- END OF NEW INPUT ---
 
         // Toggle Climbing state
         if (isNearLadder && Mathf.Abs(verticalInput) > 0.1f)
@@ -70,44 +75,42 @@ public class PlayerMovement : MonoBehaviour
     }
 
     void FixedUpdate()
+{
+    // --- AIRTIGHT DEATH LOCK ---
+    if (sunDamageScript != null && sunDamageScript.isDead)
     {
-        // 2. CRUCIAL: Freeze physical forces if dead
-        if (sunDamageScript != null && sunDamageScript.isDead)
-        {
-            rb.linearVelocity = Vector2.zero; // Strip all remaining speed/momentum
-            rb.gravityScale = 0f;       // Optional: Stop him from falling if he dies mid-air
-            return;                     // Skip the rest of the movement physics
-        }
+        horizontalInput = 0f;
+        verticalInput = 0f;
+        
+        rb.linearVelocity = Vector2.zero; 
+        
+        // Switch to Static instead! This acts like an anchor, freezing his position 
+        // completely in place mid-air, but still allows animations to play.
+        rb.bodyType = RigidbodyType2D.Static; 
+        return; 
+    }
 
-        if (isAutoWalking)
-        {
-            // Force Bro to move forward at a steady pace without needing button inputs
-            rb.linearVelocity = new Vector2(autoWalkDirection * (moveSpeed * 0.8f), rb.linearVelocity.y);
-            
-            // Optional: Trigger your running/walking animation here if you have one
-            // myAnimator.SetFloat("Speed", 1f);
-            return; 
-        }
+    if (isAutoWalking)
+    {
+        rb.linearVelocity = new Vector2(autoWalkDirection * (moveSpeed * 0.8f), rb.linearVelocity.y);
+        return; 
+    }
 
-        // Ground Check
-        isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
+    // Ground Check
+    isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
 
-        // Handle Horizontal Movement
-        rb.linearVelocity = new Vector2(horizontalInput * moveSpeed, rb.linearVelocity.y);
-
-        // Handle Ladder Climbing
-        if (isClimbing)
-        {
-            rb.gravityScale = 0f; 
-            rb.linearVelocity = new Vector2(rb.linearVelocity.x, verticalInput * climbSpeed);
-        }
-        else
-        {
-            rb.gravityScale = 2f; 
-        }
-
+    // Handle Ladder Climbing / Standard Movement
+    if (isClimbing)
+    {
+        rb.gravityScale = 0f; 
+        rb.linearVelocity = new Vector2(horizontalInput * moveSpeed, verticalInput * climbSpeed);
+    }
+    else
+    {
+        rb.gravityScale = 2f; 
         rb.linearVelocity = new Vector2(horizontalInput * moveSpeed, rb.linearVelocity.y);
     }
+}
 
     public void StartAutoWalk(float direction)
     {
@@ -115,13 +118,9 @@ public class PlayerMovement : MonoBehaviour
         autoWalkDirection = direction;
     }
 
-    // Detect Ladders
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        if (collision.CompareTag("Ladder"))
-        {
-            isNearLadder = true;
-        }
+        if (collision.CompareTag("Ladder")) isNearLadder = true;
     }
 
     private void OnTriggerExit2D(Collider2D collision)

@@ -9,6 +9,7 @@ public class LevelManager : MonoBehaviour
 
     [Header("Timer Settings")]
     public float timeRemaining = 180f; // 2 minutes total
+    [HideInInspector] public float levelTimeLimit;
     private bool isTimerRunning = false;
 
     [Header("Game States")]
@@ -27,9 +28,9 @@ public class LevelManager : MonoBehaviour
 
     void Start()
     {
-        // Automatically find the UI manager and Sun damage logic in the level
         playerSunDamage = FindFirstObjectByType<SunDamage>();
         levelUI = FindFirstObjectByType<LevelUI>();
+        levelTimeLimit = timeRemaining; 
 
         isTimerRunning = true;
     }
